@@ -53,30 +53,28 @@ We wrote the code to forward inference of the neural network to obtain the Q-val
 
 We proceed to implement the behaviour/action policy in Figure \ref{fig:behaviour_policy}. The behaviour policy is epsilon-greedy, where the agent will take a random action \texttt{a\_agent} from the array of legal actions \texttt{a}, with probability $\epsilon$, and take the greedy action with probability $1 - \epsilon$. If after taking the action, we haven't reached the terminal state, another action \texttt{a\_agent2} will be taken from the list of next legal actions, resulted taking the previous action as shown in Figure \ref{fig:target_policy_sarsa}. This is chosen according to a target policy, which is the same as the behaviour policy in the case of SARSA.
 
-A factor of the Q-value corresponding to the next action is added to the target reward to incorporate future reward. In the case of choosing an action that reaches a terminal state (checkmate or stalemate), no future action can be taken, therefore no future is incorporated. An error signal, which is the difference between the target and actual output, is computed in order to perform backpropagation. The weights are updated with the ADAM optimizer, which is a gradient descent optimization algorithm that helps us achieve convergence much quicker. When updating the weights for the last layer \texttt{W2}, we made sure we are only updating the weights corresponding to the action taken and not all the weights. We also implemented a function in Figure \ref{fig:exponential_moving_average} for computing the exponential moving averages for the data we collected, for the accumulated reward and number of moves taken during each episode.
+A factor of the Q-value corresponding to the next action is added to the target reward to incorporate future reward. In the case of choosing an action that reaches a terminal state (checkmate or stalemate), no future action can be taken, therefore no future is incorporated. An error signal, which is the difference between the target and actual output, is computed in order to perform backpropagation, implemented in Figure \ref{fig:backpropagation}. The weights are updated with the ADAM optimizer, which is a gradient descent optimization algorithm that helps us achieve convergence much quicker. When updating the weights for the last layer \texttt{W2}, we made sure we are only updating the weights corresponding to the action taken and not all the weights. We also implemented a function in Figure \ref{fig:exponential_moving_average} for computing the exponential moving averages for the data we collected, for the accumulated reward and number of moves taken during each episode, using a window size of 1000.
 
-I found out that using a learning rate $\eta$ of 0.00035, which is 10 times smaller than the suggested value, gave the best average reward of around 0.85 at the end of 20000 episodes. As I proceed to train with more episodes, I found out that the average reward started to decrease instead of converging to a value 1 as one might expect, shown in Figure \ref{fig:gamma_0_85}.
-
-\begin{figure}[htbp]
-\centerline{\includegraphics[width=0.5\textwidth]{images/gamma_0_85.png}}
-\caption{EMA of data recorded, with $\eta=0.00035$, $\gamma=0.85$, $N\_episodes=40000$}
-\label{fig:gamma_0_85}
-\end{figure}
-
-This issue was addressed by using a discount factor $\gamma$ of 0.9, achieving a stable convergence trend in Figure \ref{fig:gamma_0_90} below.
+I found out that using a learning rate $\eta$ of 0.00015 instead of the default suggested value of 0.0035, gave me a much higher average reward of around 0.85, as well as having a stable convergence trend at the end of 40000 episodes, shown in Figure \ref{fig:eta_0_00015_sarsa}.
 
 \begin{figure}[htbp]
-\centerline{\includegraphics[width=0.5\textwidth]{images/gamma_0_90.png}}
-\caption{EMA of data recorded, with $\eta=0.00035$, $\gamma=0.9$, $N\_episodes=40000$}
-\label{fig:gamma_0_90}
+\centerline{\includegraphics[width=0.5\textwidth]{images/eta_0_00015_sarsa.png}}
+\caption{EMA of data recorded for SARSA, with $\eta=0.00015$, $\gamma=0.85$, $N\_episodes=40000$}
+\label{fig:eta_0_00015_sarsa}
 \end{figure}
 
 \section{Task 3 - Varying $\gamma$ and $\epsilon$ via $\beta$}
 \subsection{Varying $\gamma$}
-$\gamma$ is the discount factor controlling the importance of future rewards. A higher $\gamma$ value will make the agent strive for a long-term high reward, while a lower $\gamma$ value will make the agent focus on the immediate reward. In the case of the modified chess game, a higher $\gamma$ value will make the agent focus on the long-term reward of checkmating the opponent and therefore incorporating long-term planning behaviour. While a lower $\gamma$ value will make the agent focus on immediate rewards such as threatening the opponent's king. We found out previously during implementation that a $\gamma$ of 0.9 gave the best results, increasing or decreasing beyond that value resulted in unstablity during training. This resulted in the average reward to drop and the number of moves taken to increase.
+$\gamma$ is the discount factor controlling the importance of future rewards. A higher $\gamma$ value will make the agent strive for a long-term high reward, while a lower $\gamma$ value will make the agent focus on the immediate reward. In the case of the modified chess game, a higher $\gamma$ value will make the agent focus on the long-term reward of checkmating the opponent and therefore incorporating long-term planning behaviour. While a lower $\gamma$ value will make the agent focus on immediate rewards such as threatening the opponent's king. I found using a $\gamma$ of 0.75 gave a much more smoother convergence trend (Figure \ref{fig:eta_0_00015_gamma_0_75_sarsa}) compared to other values. Increasing the value of $\gamma$, the agent was able to obtain.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.5\textwidth]{images/eta_0_00015_gamma_0_75_sarsa.png}}
+\caption{EMA of data recorded for SARSA, with $\eta=0.00015$, $\gamma=0.75$, $N\_episodes=40000$}
+\label{fig:eta_0_00015_gamma_0_75_sarsa}
+\end{figure}
 
 \subsection{Varying $\epsilon$ via $\beta$}
-$\epsilon$ is the probability of the agent taking a random action, instead of a greedy action by choosing the action that corresponds to the highest Q-value. A higher $\epsilon$ value will make the agent more likely to take a random action, while a lower $\epsilon$ value will make the agent more likely to take the greedy action, which will allow the agent to exploit the current best solution.
+$\epsilon$ is the probability of the agent taking a random action, instead of a greedy action by choosing the action that corresponds to the highest Q-value. A lower $\epsilon$ value will make the agent more likely to take the greedy action, while a higher value will make the agent more likely to take a random action, this will allow the agent to explore different solutions rather than always exploiting what's currently best.
 
 $\beta$ is a parameter that sets how quickly the value of $\epsilon$ is decaying. After each episode, $\epsilon$ is set using equation \ref{eq:epsilon_decay}, where $\epsilon_0$ is the initial probability and $n$ is the episode number.
 
@@ -84,8 +82,33 @@ $\beta$ is a parameter that sets how quickly the value of $\epsilon$ is decaying
     \epsilon_n = \frac{\epsilon_0}{1 + \beta * n}
 \end{equation}
 
-\section{Task 4 - Implementing Q-Learning}
+Using a lower $\beta$ value seems to allow us to reach convergence much quicker shown in Figure \ref{fig:eta_0_00015_gamma_0_75_beta_0_0000005_sarsa}, however the value converged to seems to be lower than what using a higher $\beta$ value of 0.00005 (Figure \ref{fig:eta_0_00015_gamma_0_75_beta_0_00005_sarsa}) would be, in the long run.
 
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.5\textwidth]{images/eta_0_00015_gamma_0_75_beta_0_0000005_sarsa.png}}
+\caption{EMA of data recorded for SARSA, with $\eta=0.00015$, $\gamma=0.75$, $\beta=0.0000005$, $N\_episodes=40000$}
+\label{fig:eta_0_00015_gamma_0_75_beta_0_0000005_sarsa}
+\end{figure}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.5\textwidth]{images/eta_0_00015_gamma_0_75_beta_0_00005_sarsa.png}}
+\caption{EMA of data recorded for SARSA, with $\eta=0.00015$, $\gamma=0.75$, $\beta=0.00005$, $N\_episodes=40000$}
+\label{fig:eta_0_00015_gamma_0_75_beta_0_00005_sarsa}
+\end{figure}
+
+
+\section{Task 4 - Implementing Q-Learning}
+Again, the Q-learning and SARSA algorithms are very similar, the only difference being the target policy used to obtain the expected reward. Q-learning's target policy is always greedy, that is, it always chooses the action that gives the highest Q-value/expected reward. We simply commented out SARSA's target policy and replaced with the line of code in Figure \ref{fig:target_policy_qlearning} to implement Q-learning.
+
+Comparing the results obtained from Q-leraning below in Figure \ref{fig:eta_0_00015_gamma_0_75_qlearning}, with SARSA in Figure \ref{fig:eta_0_00015_gamma_0_75_sarsa}. SARSA seems to reach convergence much quicker, however that reward value seems to be lower than what Q-learning is capable of achieving in the long run, also Q-learning takes much less number of moves.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.5\textwidth]{images/eta_0_00015_gamma_0_75_qlearning.png}}
+\caption{EMA of data recorded for Q-learning, with $\eta=0.00015$, $\gamma=0.75$, $\beta=0.00005$, $N\_episodes=40000$}
+\label{fig:eta_0_00015_gamma_0_75_qlearning}
+\end{figure}
+
+\newpage
 
 \begin{thebibliography}{00}
 \bibitem{sarsa yt} P. Porwal, "SARSA (State Action Reward State Action) Learning - Reinforcement Learning - Machine Learning" YouTube. \url{https://www.youtube.com/watch?v=FhSaHuC0u2M&ab_channel=PankajPorwal} (Accessed: April 6, 2023)
@@ -98,6 +121,19 @@ $\beta$ is a parameter that sets how quickly the value of $\epsilon$ is decaying
 
 \end{thebibliography}
 
+\section*{Notes}
+The code for this assignment can be found at \url{https://github.com/jwu02/com3240-reinforcement-learning-assignment}. We used the same seed for the Numpy random number generator to ensure reproducibility of results. Furthermore, we introduced a variable to note the number of episodes trained on if we wish to discontinue training at some point, this variable can be used with the exponential moving average function to easily verify that the results are reproducible, without changing the code. Unless explicitly stated, the parameters used to generate each of the plots can be assumed to be the default, suggested hyperparameters:
+\begin{itemize}
+    \item $\epsilon_0 = 0.2$
+    \item $\beta = 0.000005$
+    \item $\gamma = 0.85$
+    \item $\eta = 0.0035$
+    \item $N\_episodes = 100000$
+\end{itemize}
+
+At least 1000 episodes much be ran to produce a plot, since that's the window size we used. For switching between the Q-learning and SARSA algorithms, we simply commented out the epsilon-greedy target policy for SARSA and replaced it with the greedy target policy for Q-learning, and vice versa.
+
+\newpage
 \appendix
 
 \begin{figure}[htbp]
@@ -128,6 +164,12 @@ $\beta$ is a parameter that sets how quickly the value of $\epsilon$ is decaying
 \centerline{\includegraphics[width=0.45\textwidth]{images/ema.png}}
 \caption{Function for computing exponential moving averages}
 \label{fig:exponential_moving_average}
+\end{figure}
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.45\textwidth]{images/target_policy_qlearning.png}}
+\caption{Implementing greedy target policy for Q-learning}
+\label{fig:target_policy_qlearning}
 \end{figure}
 
 \end{document}
